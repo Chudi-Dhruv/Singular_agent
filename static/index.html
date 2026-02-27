@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ABDM Emergency Response</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  header h1 { font-size: 1.6rem; color: #f0f6fc; letter-spacing: 0.5px; }
+  header p  { font-size: 0.85rem; color: #8b949e; margin-top: 4px; }
+
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 20px 24px;
+    width: 100%;
+    max-width: 680px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; color: #8b949e; margin-bottom: 14px; }
+
+  /* State badge */
+  #state-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    background: #21262d;
+    color: #8b949e;
+    margin-bottom: 16px;
+  }
+  #state-badge.active   { background: #1f6feb33; color: #58a6ff; border: 1px solid #1f6feb; }
+  #state-badge.dispatch { background: #388bfd22; color: #79c0ff; border: 1px solid #388bfd55; }
+  #state-badge.severity { background: #d29922aa; color: #f0883e; border: 1px solid #d2992255; }
+  #state-badge.routing  { background: #3fb95033; color: #56d364; border: 1px solid #3fb95055; }
+  #state-badge.complete { background: #3fb95055; color: #56d364; border: 1px solid #3fb950; }
+  #state-badge.error    { background: #f8514933; color: #ff7b72; border: 1px solid #f8514955; }
+
+  /* Conversation */
+  #conversation {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .bubble {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    max-width: 88%;
+  }
+  .bubble.agent  { background: #1f6feb22; border: 1px solid #1f6feb44; align-self: flex-start; color: #cae8ff; }
+  .bubble.caller { background: #21262d; border: 1px solid #30363d; align-self: flex-end; color: #e6edf3; }
+  .bubble.partial { opacity: 0.55; font-style: italic; }
+
+  /* Mic button */
+  #mic-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+  #mic-btn {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: none;
+    background: #238636;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 0 #23863655;
+  }
+  #mic-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+  #mic-btn.recording {
+    background: #da3633;
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 #da363366; }
+    70%  { box-shadow: 0 0 0 18px #da363300; }
+    100% { box-shadow: 0 0 0 0 #da363300; }
+  }
+  #mic-label { font-size: 0.8rem; color: #8b949e; }
+
+  /* Info panels */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .info-item label { font-size: 0.7rem; color: #8b949e; display: block; margin-bottom: 2px; }
+  .info-item span  { font-size: 0.9rem; color: #e6edf3; }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .pill.sev-1 { background: #f8514933; color: #ff7b72; }
+  .pill.sev-2 { background: #d2992233; color: #f0883e; }
+  .pill.sev-3 { background: #d2992222; color: #e3b341; }
+  .pill.sev-4 { background: #3fb95022; color: #56d364; }
+  .pill.sev-5 { background: #3fb95011; color: #56d364; }
+
+  #start-btn {
+    padding: 12px 32px;
+    border-radius: 8px;
+    border: none;
+    background: #238636;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #start-btn:hover { background: #2ea043; }
+  #start-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+  .hidden { display: none !important; }
+  #qr-img { max-width: 180px; border-radius: 8px; border: 4px solid #30363d; }
+  #tracking-link { color: #58a6ff; font-size: 0.85rem; word-break: break-all; }
+  #tracking-link:hover { text-decoration: underline; }
+
+  .resource-tag {
+    display: inline-block;
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    margin: 2px;
+    color: #8b949e;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚑 ABDM Emergency Response</h1>
+  <p>Voice-first emergency dispatch prototype</p>
+</header>
+
+<!-- START SCREEN -->
+<div class="card" id="start-card">
+  <h2>New Session</h2>
+  <div id="mic-area">
+    <p style="color:#8b949e; font-size:0.9rem; text-align:center; margin-bottom:16px;">
+      Click Start to connect. The agent will greet you and ask questions.<br>
+      Hold the 🎙 button while speaking, release when done.
+    </p>
+    <button id="start-btn" onclick="startSession()">Start Emergency Session</button>
+  </div>
+</div>
+
+<!-- CONVERSATION CARD -->
+<div class="card hidden" id="conv-card">
+  <h2>Conversation</h2>
+  <div id="state-badge">CONNECTING</div>
+  <div id="conversation"></div>
+  <div style="margin-top:16px;" id="mic-area">
+    <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+      <button id="mic-btn" disabled onmousedown="startRecording()" onmouseup="stopRecording()"
+              ontouchstart="startRecording()" ontouchend="stopRecording()">🎙</button>
+      <span id="mic-label">Wait for agent to finish speaking…</span>
+    </div>
+  </div>
+</div>
+
+<!-- DISPATCH CARD -->
+<div class="card hidden" id="dispatch-card">
+  <h2>🚑 Dispatch</h2>
+  <div class="info-grid">
+    <div class="info-item"><label>Unit</label><span id="d-unit">—</span></div>
+    <div class="info-item"><label>ETA</label><span id="d-eta">—</span></div>
+    <div class="info-item" style="grid-column:1/-1">
+      <label>Tracking</label>
+      <a id="tracking-link" href="#" target="_blank">—</a>
+    </div>
+  </div>
+</div>
+
+<!-- SEVERITY CARD -->
+<div class="card hidden" id="severity-card">
+  <h2>⚕️ Severity Assessment</h2>
+  <div class="info-grid">
+    <div class="info-item"><label>Severity</label><span id="s-score">—</span></div>
+    <div class="info-item"><label>Care Type</label><span id="s-care">—</span></div>
+    <div class="info-item"><label>Stability Window</label><span id="s-stable">—</span></div>
+    <div class="info-item" style="grid-column:1/-1"><label>Resources Needed</label><div id="s-resources"></div></div>
+  </div>
+  <p id="s-placeholder" style="font-size:0.72rem;color:#484f58;margin-top:8px;">⚠ Placeholder model</p>
+</div>
+
+<!-- HOSPITAL CARD -->
+<div class="card hidden" id="hospital-card">
+  <h2>🏥 Hospital Routing</h2>
+  <div class="info-grid">
+    <div class="info-item" style="grid-column:1/-1"><label>Assigned Hospital</label><span id="h-name">—</span></div>
+    <div class="info-item"><label>Distance</label><span id="h-dist">—</span></div>
+    <div class="info-item"><label>Match Score</label><span id="h-score">—</span></div>
+  </div>
+  <div style="margin-top:16px; text-align:center;">
+    <p style="font-size:0.75rem; color:#8b949e; margin-bottom:8px;">Paramedic QR Code</p>
+    <img id="qr-img" class="hidden" alt="QR Code"/>
+    <p id="qr-note" style="font-size:0.75rem;color:#484f58;">QR code saved on server at output_qr/</p>
+  </div>
+</div>
+
+<script>
+// ── WebSocket URL ──────────────────────────────────────────────────────────
+// Detects SageMaker Studio proxy URL automatically.
+// SageMaker Studio proxy format:
+//   https://<domain>.studio.us-east-1.sagemaker.aws/jupyter/default/proxy/8000/
+// We replace https → wss and strip trailing slash.
+function getWsUrl() {
+  const loc = window.location;
+  const proto = loc.protocol === "https:" ? "wss:" : "ws:";
+  // SageMaker Notebook proxy: path is /proxy/8000/  → WS must be /proxy/8000/ws
+  // Local dev: path is /  → WS is /ws
+  const base = loc.pathname.replace(/\/$/, "");
+  return `${proto}//${loc.host}${base}/ws`;
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let ws = null;
+let mediaRecorder = null;
+let audioContext = null;
+let agentAudioQueue = [];
+let isPlayingAgentAudio = false;
+let awaitingAgentFinish = false;
+let pcmBuffer = [];    // collects raw PCM from browser mic
+
+// ── Session start ──────────────────────────────────────────────────────────
+async function startSession() {
+  document.getElementById("start-btn").disabled = true;
+  document.getElementById("start-card").classList.add("hidden");
+  document.getElementById("conv-card").classList.remove("hidden");
+
+  setBadge("CONNECTING", "");
+
+  // Request mic permission upfront
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true } });
+    window._micStream = stream;
+  } catch(e) {
+    addBubble("agent", "Microphone access denied. Please allow mic access and refresh.");
+    return;
+  }
+
+  audioContext = new AudioContext({ sampleRate: 16000 });
+
+  ws = new WebSocket(getWsUrl());
+  ws.binaryType = "arraybuffer";
+
+  ws.onopen = () => {
+    ws.send("READY");
+    setBadge("CONNECTED", "active");
+  };
+
+  ws.onmessage = async (event) => {
+    if (event.data instanceof ArrayBuffer) {
+      // Agent audio (Polly PCM) — queue and play
+      enqueueAgentAudio(event.data);
+      return;
+    }
+
+    const msg = JSON.parse(event.data);
+
+    switch(msg.type) {
+      case "state":
+        handleState(msg.state);
+        break;
+      case "agent_text":
+        addBubble("agent", msg.text);
+        awaitingAgentFinish = true;
+        document.getElementById("mic-btn").disabled = true;
+        document.getElementById("mic-label").textContent = "Agent speaking…";
+        break;
+      case "listening":
+        awaitingAgentFinish = false;
+        document.getElementById("mic-btn").disabled = false;
+        document.getElementById("mic-label").textContent = "Hold 🎙 while speaking, release when done";
+        break;
+      case "transcript":
+        if (msg.final && msg.text) addBubble("caller", msg.text);
+        break;
+      case "intake_progress":
+        updateIntakeProgress(msg.collected, msg.missing);
+        break;
+      case "dispatch_complete":
+        showDispatch(msg);
+        break;
+      case "severity_complete":
+        showSeverity(msg);
+        break;
+      case "routing_complete":
+        showRouting(msg);
+        break;
+      case "summary":
+        showSummary(msg);
+        break;
+      case "error":
+        setBadge("ERROR", "error");
+        addBubble("agent", "⚠ Error: " + msg.message);
+        break;
+    }
+  };
+
+  ws.onclose = () => {
+    document.getElementById("mic-btn").disabled = true;
+    document.getElementById("mic-label").textContent = "Session ended.";
+  };
+
+  ws.onerror = (e) => {
+    setBadge("CONNECTION ERROR", "error");
+    addBubble("agent", "WebSocket connection failed. Check server is running.");
+  };
+}
+
+// ── Polly audio playback (PCM → AudioContext) ──────────────────────────────
+// Server sends PCM16 mono 16kHz in chunks, ends with empty binary frame.
+let _pcmCollector = [];
+
+function enqueueAgentAudio(data) {
+  if (data.byteLength === 0) {
+    // End sentinel — play accumulated PCM
+    if (_pcmCollector.length > 0) {
+      const full = concatArrayBuffers(_pcmCollector);
+      _pcmCollector = [];
+      playPCM16(full);
+    }
+    return;
+  }
+  _pcmCollector.push(data);
+}
+
+function concatArrayBuffers(bufs) {
+  const total = bufs.reduce((n, b) => n + b.byteLength, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const b of bufs) { out.set(new Uint8Array(b), off); off += b.byteLength; }
+  return out.buffer;
+}
+
+function playPCM16(arrayBuffer) {
+  // Convert PCM16 LE to Float32 for Web Audio API
+  const int16 = new Int16Array(arrayBuffer);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768.0;
+
+  const audioBuffer = audioContext.createBuffer(1, float32.length, 16000);
+  audioBuffer.getChannelData(0).set(float32);
+
+  const src = audioContext.createBufferSource();
+  src.buffer = audioBuffer;
+  src.connect(audioContext.destination);
+  src.start();
+  // When agent audio finishes → mic button becomes active
+  src.onended = () => {
+    // server sends "listening" event which enables mic; this is a fallback
+  };
+}
+
+// ── Mic recording ──────────────────────────────────────────────────────────
+// We capture mic via ScriptProcessor (wide browser support) → PCM16 → WebSocket
+
+async function startRecording() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (awaitingAgentFinish) return;
+
+  document.getElementById("mic-btn").classList.add("recording");
+  document.getElementById("mic-label").textContent = "Recording… release when done";
+
+  const stream = window._micStream;
+  const source = audioContext.createMediaStreamSource(stream);
+  const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+  processor.onaudioprocess = (e) => {
+    if (!window._recording) return;
+    const float32 = e.inputBuffer.getChannelData(0);
+    const int16 = float32ToInt16(float32);
+    ws.send(int16.buffer);
+  };
+
+  source.connect(processor);
+  processor.connect(audioContext.destination);
+  window._micSource = source;
+  window._micProcessor = processor;
+  window._recording = true;
+}
+
+function stopRecording() {
+  if (!window._recording) return;
+  window._recording = false;
+
+  if (window._micSource) {
+    window._micSource.disconnect();
+    window._micProcessor.disconnect();
+  }
+
+  document.getElementById("mic-btn").classList.remove("recording");
+  document.getElementById("mic-btn").disabled = true;
+  document.getElementById("mic-label").textContent = "Processing…";
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send("END");
+  }
+}
+
+function float32ToInt16(f32) {
+  const i16 = new Int16Array(f32.length);
+  for (let i = 0; i < f32.length; i++) {
+    const s = Math.max(-1, Math.min(1, f32[i]));
+    i16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return i16;
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function setBadge(text, cls) {
+  const b = document.getElementById("state-badge");
+  b.textContent = text;
+  b.className = cls;
+}
+
+function addBubble(role, text) {
+  const div = document.createElement("div");
+  div.className = `bubble ${role}`;
+  div.textContent = text;
+  const conv = document.getElementById("conversation");
+  conv.appendChild(div);
+  conv.scrollTop = conv.scrollHeight;
+}
+
+function handleState(state) {
+  const map = {
+    INTAKE_IN_PROGRESS:   ["INTAKE", "active"],
+    DISPATCH_IN_PROGRESS: ["DISPATCHING 🚑", "dispatch"],
+    SEVERITY_CALCULATING: ["SEVERITY CALC", "severity"],
+    ROUTING_IN_PROGRESS:  ["ROUTING 🏥", "routing"],
+    ACTIVE_TRANSPORT:     ["ACTIVE TRANSPORT ✓", "complete"],
+    SEVERITY_UPDATED:     ["SEVERITY UPDATED", "severity"],
+  };
+  const [label, cls] = map[state] || [state, ""];
+  setBadge(label, cls);
+}
+
+function updateIntakeProgress(collected, missing) {
+  // Could render a progress bar here; for now just log
+  console.log("Collected:", collected, "Missing:", missing);
+}
+
+function showDispatch(msg) {
+  document.getElementById("dispatch-card").classList.remove("hidden");
+  document.getElementById("d-unit").textContent = msg.unit_id;
+  document.getElementById("d-eta").textContent = `~${Math.round(msg.eta_minutes)} min`;
+  const link = document.getElementById("tracking-link");
+  link.href = msg.tracking_url;
+  link.textContent = msg.tracking_url;
+}
+
+function showSeverity(msg) {
+  document.getElementById("severity-card").classList.remove("hidden");
+  const sevLabels = {1:"CRITICAL",2:"EMERGENT",3:"URGENT",4:"SEMI-URGENT",5:"NON-URGENT"};
+  const scoreEl = document.getElementById("s-score");
+  scoreEl.innerHTML = `<span class="pill sev-${msg.severity_score}">${sevLabels[msg.severity_score] || msg.severity_score}</span>`;
+  document.getElementById("s-care").textContent = msg.care_type.toUpperCase();
+  document.getElementById("s-stable").textContent = msg.stability_window;
+  const res = document.getElementById("s-resources");
+  res.innerHTML = msg.resources_needed.map(r => `<span class="resource-tag">${r}</span>`).join("");
+  document.getElementById("s-placeholder").style.display = msg.is_placeholder ? "block" : "none";
+}
+
+function showRouting(msg) {
+  document.getElementById("hospital-card").classList.remove("hidden");
+  document.getElementById("h-name").textContent = msg.hospital_name;
+  document.getElementById("h-dist").textContent = `${msg.hospital_distance_km} km`;
+  document.getElementById("h-score").textContent = msg.hospital_score?.toFixed(3);
+}
+
+function showSummary(msg) {
+  setBadge("COMPLETE ✓", "complete");
+  document.getElementById("mic-btn").disabled = true;
+  document.getElementById("mic-label").textContent = "Session complete.";
+  console.log("Full summary:", msg);
+}
+</script>
+</body>
+</html>

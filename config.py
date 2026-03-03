@@ -2,10 +2,6 @@
 config.py
 =========
 All configuration loaded from environment / .env file.
-
-On SageMaker Studio the execution role provides AWS credentials automatically
-via the instance metadata service — you do NOT need to set AWS_ACCESS_KEY_ID
-or AWS_SECRET_ACCESS_KEY. They are optional here for local dev use only.
 """
 
 from __future__ import annotations
@@ -16,8 +12,6 @@ from pydantic import Field
 
 class Settings(BaseSettings):
     # ── AWS Core ──────────────────────────────────────────────────────────────
-    # Keys are OPTIONAL on SageMaker — the IAM execution role handles auth.
-    # Set them in .env only when running locally without an IAM role.
     aws_region: str = Field("eu-north-1", env="AWS_REGION")
     aws_access_key_id:     Optional[str] = Field(None, env="AWS_ACCESS_KEY_ID")
     aws_secret_access_key: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
@@ -28,12 +22,12 @@ class Settings(BaseSettings):
     )
 
     # ── Polly ─────────────────────────────────────────────────────────────────
-    polly_voice_id:     str = Field("Aditi", env="POLLY_VOICE_ID")
+    polly_voice_id:      str = Field("Aditi", env="POLLY_VOICE_ID")
     polly_language_code: str = Field("hi-IN", env="POLLY_LANGUAGE_CODE")
 
     # ── Transcribe ────────────────────────────────────────────────────────────
-    transcribe_language_code: str = Field("en-IN", env="TRANSCRIBE_LANGUAGE_CODE")
-    transcribe_sample_rate:   int = Field(16000,   env="TRANSCRIBE_SAMPLE_RATE")
+    transcribe_language_code: str = Field("en-IN",     env="TRANSCRIBE_LANGUAGE_CODE")
+    transcribe_sample_rate:   int = Field(16000,       env="TRANSCRIBE_SAMPLE_RATE")
     transcribe_region:        str = Field("eu-west-1", env="TRANSCRIBE_REGION")
 
     # ── DynamoDB ──────────────────────────────────────────────────────────────
@@ -47,6 +41,9 @@ class Settings(BaseSettings):
         "12.9716:77.5946:AMB-001,12.9352:77.6245:AMB-002,12.9611:77.6387:AMB-003",
         env="DUMMY_AMBULANCE_FLEET",
     )
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+    jwt_secret: str = Field("changeme", env="JWT_SECRET")
 
     class Config:
         env_file = ".env"
